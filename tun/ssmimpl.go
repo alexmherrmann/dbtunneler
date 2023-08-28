@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -23,7 +25,7 @@ func NewEc2() (*Ec2Interactor, error) {
 	}
 
 	svc := ec2.New(sess)
-	return &Ec2Interactor{svc, nil}, nil
+	return &Ec2Interactor{svc, make([]*ec2.Instance, 0, 20)}, nil
 }
 
 type Ec2Interactor struct {
@@ -122,7 +124,7 @@ func (e *Ec2Interactor) RefreshAllRegions() []error {
 	for result := range resultChan {
 		// log.Printf("Got %d results", len(result))
 		e.instances = append(e.instances, result...)
-		log.Printf("Total instances: %d", len(e.instances))
+		// log.Printf("Total instances: %d", len(e.instances))
 	}
 
 	// As errors come in, append them to the errors list
@@ -137,6 +139,36 @@ func (e *Ec2Interactor) RefreshAllRegions() []error {
 	log.Printf("Got %d instances", len(e.instances))
 	return errors
 
+}
+
+func superKill(pid int) error {
+	var cmd *exec.Cmd
+
+	stdErrBuff := &bytes.Buffer{}
+	switch runtime.GOOS {
+	case "windows":
+		// Taskkill is used to terminate tasks by process id or image name.
+		// The `/T` option is used to terminate all child processes along with the parent process, commonly known as a tree kill.
+		cmd = exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/T", "/F")
+
+	case "darwin", "linux":
+		// Pgrep finds processes by a parent pid, and we're passing that list to pkill to terminate them.
+		// Then, we kill the parent process.
+		cmd = exec.Command("/bin/sh", "-c", "pkill -TERM -P "+strconv.Itoa(pid)+"; kill -TERM "+strconv.Itoa(pid))
+
+	default:
+		return fmt.Errorf("unsupported platform")
+	}
+
+	cmd.Stderr = stdErrBuff
+
+	execErr := cmd.Run()
+
+	if execErr != nil {
+		return fmt.Errorf("error killing process (stderr below): %s\n%s", execErr, stdErrBuff.String())
+	}
+
+	return nil
 }
 
 /*
@@ -178,6 +210,23 @@ func StartSSMProxy(
 		documentStr,
 	)
 
+	doKill := make(chan bool)
+
+	go func(ctx context.Context) {
+		var kerr error
+		select {
+		case <-ctx.Done():
+			log.Printf("Context done, killing process")
+			kerr = superKill(cmd.Process.Pid)
+		case <-doKill:
+			log.Printf("Killing process")
+			kerr = superKill(cmd.Process.Pid)
+		}
+		if kerr != nil {
+			log.Printf("> Error killing process: %s", kerr)
+		}
+	}(ctx)
+
 	errBits := &bytes.Buffer{}
 	cmd.Stderr = errBits
 
@@ -189,10 +238,17 @@ func StartSSMProxy(
 	}
 
 	go func() {
+		// defer func() {
+		// 	kerr := superKill(cmd.Process.Pid)
+		// 	if kerr != nil {
+		// 		log.Printf("Error killing process after waiting: %s", kerr)
+		// 	}
+		// }()
 		if err := cmd.Wait(); err != nil {
 			// Capture the stderr and wrap it along with the original error
 			cmdErr <- fmt.Errorf("%v: %s", err, errBits.String())
 		}
+		doKill <- true
 		close(cmdErr)
 	}()
 

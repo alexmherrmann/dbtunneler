@@ -1,4 +1,4 @@
-module rdstunneler
+module tunny
 
 go 1.20
 

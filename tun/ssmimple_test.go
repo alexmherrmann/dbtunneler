@@ -5,10 +5,41 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"rdstunneler/src/tun"
 	"testing"
 	"time"
+	"tunny/tun"
 )
+
+func TestStartWithBadParamsAndCleaned(t *testing.T) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	errChan, err := tun.StartSSMProxy(ctx,
+		"i-12345678901234567",
+		"8081",
+		"httpbin.org",
+		"80")
+
+	if err != nil {
+		t.Errorf("Error starting proxy: %s", err)
+		return
+	} else {
+		t.Logf("Started proxy")
+	}
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("Context timed out")
+		return
+	case err := <-errChan:
+		if err != nil {
+			t.Logf("Got expected error: %s", err)
+			return
+		}
+	}
+
+}
 
 func TestStartEbSSMProxyToEnvVar(t *testing.T) {
 
@@ -43,7 +74,7 @@ func TestStartEbSSMProxyToEnvVar(t *testing.T) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer cancel()
 
 	eventualErr, err := tun.StartSSMProxy(ctx,
@@ -55,13 +86,16 @@ func TestStartEbSSMProxyToEnvVar(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error starting proxy: %s", err)
 		return
+	} else {
+		t.Logf("Started proxy")
 	}
 
 	success := make(chan bool)
+
 	// Start a goroutine that keeps trying localhost:8080 until it gets a response from httpbin.org through the proxy
 	go func() {
 		for {
-			t.Logf("Running request")
+			t.Logf("Running request %s", time.Now().String())
 			req := http.Request{
 				Method: "GET",
 				URL:    &url.URL{Scheme: "http", Host: "localhost:8080"},
@@ -77,10 +111,14 @@ func TestStartEbSSMProxyToEnvVar(t *testing.T) {
 				continue
 			}
 
-			if resp.StatusCode > 0 {
+			if resp.StatusCode == 200 {
 				t.Logf("Got response: %d", resp.StatusCode)
 				success <- true
-				return
+				break
+			} else {
+				t.Logf("Got non-200 response: %d", resp.StatusCode)
+				time.Sleep(1 * time.Second)
+				continue
 			}
 		}
 	}()
@@ -90,7 +128,7 @@ func TestStartEbSSMProxyToEnvVar(t *testing.T) {
 		t.Logf("Got success!")
 		return
 	case <-ctx.Done():
-		t.Errorf("Proxy timed out after 15 seconds")
+		t.Errorf("Context timed out")
 		return
 	case err := <-eventualErr:
 		if err != nil {
