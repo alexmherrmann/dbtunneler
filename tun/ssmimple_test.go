@@ -2,9 +2,9 @@ package tun_test
 
 import (
 	"context"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 	"tunny/tun"
@@ -43,7 +43,7 @@ func TestStartWithBadParamsAndCleaned(t *testing.T) {
 
 func TestStartEbSSMProxyToEnvVar(t *testing.T) {
 
-	envValueBytes, err := ioutil.ReadFile("test_env_name.txt")
+	envValueBytes, err := os.ReadFile("test_env_name.txt")
 	if err != nil {
 		t.Errorf("Error opening test_env_name.txt: %s", err)
 		return

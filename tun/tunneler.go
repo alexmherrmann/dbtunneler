@@ -2,7 +2,8 @@ package tun
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
+
 	"os"
 )
 
@@ -32,7 +33,7 @@ func GetTunnelTargets() ([]TunnelTarget, error) {
 	defer file.Close()
 	// read the file
 
-	allBytes, err := ioutil.ReadAll(file)
+	allBytes, err := io.ReadAll(file)
 	if err != nil {
 		return nil, err
 	}
