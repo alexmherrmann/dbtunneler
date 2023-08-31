@@ -212,6 +212,8 @@ func StartSSMProxy(
 
 	doKill := make(chan bool)
 
+	cmdErr := make(chan error)
+	ocmdErr = cmdErr
 	go func(ctx context.Context) {
 		var kerr error
 		select {
@@ -225,13 +227,13 @@ func StartSSMProxy(
 		if kerr != nil {
 			log.Printf("> Error killing process: %s", kerr)
 		}
+
+		close(cmdErr)
 	}(ctx)
 
 	errBits := &bytes.Buffer{}
 	cmd.Stderr = errBits
 
-	cmdErr := make(chan error)
-	ocmdErr = cmdErr
 	// Start the command
 	if err := cmd.Start(); err != nil {
 		startErr = err

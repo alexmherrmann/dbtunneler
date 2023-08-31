@@ -1,2 +1,6 @@
 # Files that users can set test configs in 
 test_*
+/bin
+
+tunny.log
+__debug*
