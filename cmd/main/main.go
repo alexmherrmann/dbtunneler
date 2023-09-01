@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 	"tunny/monitor"
+	"tunny/webmonitor"
 )
 
 func getStdLogger() (w io.Writer, err error) {
@@ -48,6 +49,7 @@ func main() {
 			cancelFunc()
 			return
 		} else if read[0] == 'q' {
+			fmt.Printf("Received quit command, shutting down\n")
 			cancelFunc()
 		}
 	}()
@@ -68,7 +70,13 @@ func main() {
 
 	waiter := &sync.WaitGroup{}
 
-	var mon monitor.MonitoringInteractor = &monitor.CliMonitor{}
+	// var mon monitor.MonitoringInteractor = &monitor.CliMonitor{}
+	mon, err := webmonitor.NewWebMonitor(topCtx, targets)
+	if err != nil {
+		fmt.Printf("Error creating web monitor: %s", err)
+		exitCode = 1
+		return
+	}
 
 	for _, target := range targets {
 		waiter.Add(1)

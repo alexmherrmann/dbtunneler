@@ -77,7 +77,7 @@ func (e *Ec2Interactor) GetAnInstanceForBeanstalkEnv(beanstalkName string) (*ec2
 // Go try and refresh all the regions
 func (e *Ec2Interactor) RefreshAllRegions() []error {
 	input := &ec2.DescribeRegionsInput{}
-	log.Println("Refreshing regions, getting regions first")
+	// log.Println("Refreshing regions, getting regions first")
 	regions, err := e.Ec2Svc.DescribeRegions(input)
 	if err != nil {
 		return []error{err}
@@ -91,7 +91,7 @@ func (e *Ec2Interactor) RefreshAllRegions() []error {
 	for _, reg := range regions.Regions {
 		waitgroup.Add(1)
 		timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Second*45)
-		log.Print("Starting refresh for region ", *reg.RegionName)
+		// log.Print("Starting refresh for region ", *reg.RegionName)
 		// Go start a goroutine to refresh the instances for each region
 		go func(region *ec2.Region) {
 			defer waitgroup.Done()
@@ -107,14 +107,14 @@ func (e *Ec2Interactor) RefreshAllRegions() []error {
 				return
 			}
 
-			log.Printf("Got %d results for region %s", len(result), *region.RegionName)
+			// log.Printf("Got %d results for region %s", len(result), *region.RegionName)
 			resultChan <- result
 		}(reg)
 	}
 
 	// Wait for all the goroutines to finish
 	go func() {
-		log.Print("Waiting for all refreshes to finish")
+		// log.Print("Waiting for all refreshes to finish")
 		waitgroup.Wait()
 		close(resultChan)
 		close(errChan)
@@ -196,9 +196,7 @@ func StartSSMProxy(
 		localport,
 	)
 
-	// Set up the command
-	cmd := exec.CommandContext(
-		ctx,
+	args := []string{
 		"aws",
 		"ssm",
 		"start-session",
@@ -208,13 +206,22 @@ func StartSSMProxy(
 		"AWS-StartPortForwardingSessionToRemoteHost",
 		"--parameters",
 		documentStr,
+	}
+
+	log.Printf("Starting command: \"%s\"\n", args)
+
+	// Set up the command
+	cmd := exec.CommandContext(
+		ctx,
+		args[0],
+		args[1:]...,
 	)
 
 	doKill := make(chan bool)
 
 	cmdErr := make(chan error)
 	ocmdErr = cmdErr
-	go func(ctx context.Context) {
+	go func(ctx context.Context, cmd *exec.Cmd) {
 		var kerr error
 		select {
 		case <-ctx.Done():
@@ -228,8 +235,7 @@ func StartSSMProxy(
 			log.Printf("> Error killing process: %s", kerr)
 		}
 
-		close(cmdErr)
-	}(ctx)
+	}(ctx, cmd)
 
 	errBits := &bytes.Buffer{}
 	cmd.Stderr = errBits
@@ -239,14 +245,11 @@ func StartSSMProxy(
 		startErr = err
 	}
 
+	// This goroutine will wait for the command to finish, and then close the cmdErr channel
 	go func() {
-		// defer func() {
-		// 	kerr := superKill(cmd.Process.Pid)
-		// 	if kerr != nil {
-		// 		log.Printf("Error killing process after waiting: %s", kerr)
-		// 	}
-		// }()
 		if err := cmd.Wait(); err != nil {
+			log.Printf("Command finished with error: %v", err)
+			log.Printf("Stderr: %s", errBits.String())
 			// Capture the stderr and wrap it along with the original error
 			cmdErr <- fmt.Errorf("%v: %s", err, errBits.String())
 		}

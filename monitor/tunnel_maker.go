@@ -63,6 +63,8 @@ func MakeTargetIntoSomething(
 		if err != nil {
 			mon.ReportFatalError(target.Name, "Error starting proxy: %s", err)
 
+		} else {
+			mon.ReportInfo(target.Name, "Started proxy (from eb env %s) to %s", target.EbSsmConfig.EnvironmentName, *instanceId.InstanceId)
 		}
 
 		go HandleStartedErrChan(mon, target, eventual, waiter)
