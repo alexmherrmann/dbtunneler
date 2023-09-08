@@ -11,10 +11,26 @@
         "mode": "debug",
         "program": "${workspaceFolder}/cmd/main",
         "console": "integratedTerminal",
+        "cwd": "${workspaceFolder}",
         "buildFlags": "-race",
         "args": [
             "-filename",
             "${workspaceFolder}/test_tunny.json",
         ]
-    }]
+    }, {
+        // Same thing but not a debug
+        "name": "run tunny",
+        "type": "go",
+        "request": "launch",
+        "mode": "auto",
+        "program": "${workspaceFolder}/cmd/main",
+        "cwd": "${workspaceFolder}",
+        "console": "integratedTerminal",
+        "args": [
+            "-filename",
+            "${workspaceFolder}/test_tunny.json",
+        ]
+    }
+
+]
 }

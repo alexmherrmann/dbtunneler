@@ -44,13 +44,13 @@ func main() {
 	go func() {
 		read, err := bufio.NewReader(os.Stdin).ReadBytes('\n')
 		if err != nil {
-			fmt.Printf("Error reading from stdin: %s", err)
+			log.Printf("Error reading from stdin: %s", err)
 			exitCode = 1
 			cancelFunc()
-			return
 		} else if read[0] == 'q' {
-			fmt.Printf("Received quit command, shutting down\n")
+			log.Printf("Received quit command, shutting down\n")
 			cancelFunc()
+
 		}
 	}()
 
@@ -58,11 +58,16 @@ func main() {
 		cancelFunc()
 		// Give enough time to hopefully let the process exit, a hack for sure
 		time.Sleep(350 * time.Millisecond)
+		err := recover()
+		if err != nil {
+			log.Printf("Panic: %s", err)
+			exitCode = 1
+		}
 		os.Exit(exitCode)
 	}()
 
 	if err != nil {
-		fmt.Printf("Error getting tunnel targets: %s", err)
+		log.Printf("Error getting tunnel targets: %s", err)
 		exitCode = 1
 
 		return
@@ -73,7 +78,7 @@ func main() {
 	// var mon monitor.MonitoringInteractor = &monitor.CliMonitor{}
 	mon, err := webmonitor.NewWebMonitor(topCtx, targets)
 	if err != nil {
-		fmt.Printf("Error creating web monitor: %s", err)
+		log.Printf("Error creating web monitor: %s", err)
 		exitCode = 1
 		return
 	}

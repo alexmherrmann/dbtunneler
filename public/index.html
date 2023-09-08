@@ -1,0 +1,44 @@
+<html>
+
+<head>
+    <title>Tunny</title>
+    <!-- include the assets/base.css -->
+    <link rel="stylesheet" href="/assets/base.css">
+    <!-- <script src="https://unpkg.com/alpinejs" defer></script> -->
+    <script src="/assets/index.js"></script>
+    <script src="/alpinejs.js" defer></script>
+
+</head>
+
+<body>
+    <div id="top" x-data="$store.top">
+        <h1>Tunny</h1>
+        <template x-if="!loaded">
+            <div>Loading...</div>
+        </template>
+        <ul id="targetlist">
+            <template x-for="target in state.targets">
+                <li>
+                    <div x-text="target.name"></div>
+                    <ul id="loglist">
+                        <template x-for="info in state.logs[target.name]">
+                            <li :class="info.level">
+                                <span class="logtime" x-text="info.time"></span>
+                                <span x-text="info.msg"></span>
+                            </li>
+                        </template>
+                    </ul>
+                </li>
+            </template>
+        </ul>
+    </div>
+
+    <!-- <div x-data="{ count: 0 }">
+        <button x-on:click="count++">Increment</button>
+
+        <span x-text="count"></span>
+    </div> -->
+
+</body>
+
+</html>

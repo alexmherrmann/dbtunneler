@@ -4,3 +4,5 @@ test_*
 
 tunny.log
 __debug*
+
+node_modules

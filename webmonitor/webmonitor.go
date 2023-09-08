@@ -10,19 +10,27 @@ import (
 	"tunny/monitor"
 )
 
+type LogItem struct {
+	Level string    `json:"level",omitempty`
+	Msg   string    `json:"msg"`
+	Time  time.Time `json:"time"`
+}
+
 type WebMonitor struct {
 	lock    *sync.Mutex
 	Targets []monitor.TunnelTarget `json:"targets"`
 
-	Info  map[string][]string `json:"info"`
-	Warn  map[string][]string `json:"warn"`
-	Fatal map[string][]string `json:"fatal"`
+	Logs map[string][]LogItem `json:"logs"`
+	// Info  map[string][]LogItem `json:"info"`
+	// Warn  map[string][]LogItem `json:"warn"`
+	// Fatal map[string][]LogItem `json:"fatal"`
 
-	GeneralInfo []string `json:"general_info"`
+	GeneralInfo []LogItem `json:"general_info"`
 
 	cliBackup *monitor.CliMonitor
 }
 
+// Claim the webmonitor for writing, returns a function to release the lock.
 func (w *WebMonitor) claim() func() {
 	w.lock.Lock()
 
@@ -36,11 +44,12 @@ func (w *WebMonitor) ReportError(targetName string, _fmt string, args ...any) {
 	w.cliBackup.ReportError(targetName, _fmt, args...)
 	unclaim := w.claim()
 	defer unclaim()
-	if val, ok := w.Warn[targetName]; ok {
-		w.Warn[targetName] = append(val, fmt.Sprintf(_fmt, args...))
+	newItem := LogItem{Msg: fmt.Sprintf(_fmt, args...), Time: time.Now(), Level: "warn"}
+	if val, ok := w.Logs[targetName]; ok {
+		w.Logs[targetName] = append(val, newItem)
 	} else {
 		// Just go make it
-		w.Warn[targetName] = []string{fmt.Sprintf(_fmt, args...)}
+		w.Logs[targetName] = []LogItem{newItem}
 	}
 }
 
@@ -49,11 +58,12 @@ func (w *WebMonitor) ReportFatalError(targetName string, _fmt string, args ...an
 	w.cliBackup.ReportFatalError(targetName, _fmt, args...)
 	unclaim := w.claim()
 	defer unclaim()
-	if val, ok := w.Fatal[targetName]; ok {
-		w.Fatal[targetName] = append(val, fmt.Sprintf(_fmt, args...))
+	newItem := LogItem{Msg: fmt.Sprintf(_fmt, args...), Time: time.Now(), Level: "fatal"}
+	if val, ok := w.Logs[targetName]; ok {
+		w.Logs[targetName] = append(val, newItem)
 	} else {
 		// Just go make it
-		w.Fatal[targetName] = []string{fmt.Sprintf(_fmt, args...)}
+		w.Logs[targetName] = []LogItem{newItem}
 	}
 }
 
@@ -62,7 +72,9 @@ func (w *WebMonitor) ReportGeneralMessage(_fmt string, args ...any) {
 	w.cliBackup.ReportGeneralMessage(_fmt, args...)
 	unclaim := w.claim()
 	defer unclaim()
-	w.GeneralInfo = append(w.GeneralInfo, fmt.Sprintf(_fmt, args...))
+	newItem := LogItem{Msg: fmt.Sprintf(_fmt, args...), Time: time.Now(), Level: "info"}
+
+	w.GeneralInfo = append(w.GeneralInfo, newItem)
 }
 
 // ReportInfo implements monitor.MonitoringInteractor.
@@ -70,22 +82,22 @@ func (w *WebMonitor) ReportInfo(targetName string, _fmt string, args ...any) {
 	w.cliBackup.ReportInfo(targetName, _fmt, args...)
 	unclaim := w.claim()
 	defer unclaim()
-	if val, ok := w.Info[targetName]; ok {
-		w.Info[targetName] = append(val, fmt.Sprintf(_fmt, args...))
+	newItem := LogItem{Msg: fmt.Sprintf(_fmt, args...), Time: time.Now(), Level: "info"}
+	if val, ok := w.Logs[targetName]; ok {
+		w.Logs[targetName] = append(val, newItem)
 	} else {
 		// Just go make it
-		w.Info[targetName] = []string{fmt.Sprintf(_fmt, args...)}
+		w.Logs[targetName] = []LogItem{newItem}
 	}
 }
 
 func NewWebMonitor(ctx context.Context, targets []monitor.TunnelTarget) (*WebMonitor, error) {
 	mon := &WebMonitor{
-		lock:        &sync.Mutex{},
-		Targets:     targets,
-		Info:        make(map[string][]string),
-		Warn:        make(map[string][]string),
-		Fatal:       make(map[string][]string),
-		GeneralInfo: make([]string, 0),
+		lock:    &sync.Mutex{},
+		Targets: targets,
+		Logs:    make(map[string][]LogItem),
+
+		GeneralInfo: []LogItem{},
 	}
 
 	mux := mon.GetMux()
@@ -102,7 +114,7 @@ func NewWebMonitor(ctx context.Context, targets []monitor.TunnelTarget) (*WebMon
 		defer cancelFunc()
 		err := server.Shutdown(newCtx)
 		if err != nil {
-			fmt.Printf("Error shutting down web server: %s", err)
+			log.Printf("Error shutting down web server: %s", err)
 		}
 	}(ctx)
 

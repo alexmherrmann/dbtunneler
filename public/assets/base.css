@@ -1,0 +1,46 @@
+
+/* The top level div */
+#top {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: start;
+    height: 100%;
+}
+/* set the font family for all elements */
+* {
+    font-family: 'Roboto', sans-serif;
+}
+
+/* The header */
+#top h1 {
+    margin: 0;
+    padding: 0;
+    font-size: 2em;
+    font-weight: 400;
+    color: #333;
+    text-align: center;
+    margin-bottom: 0.5em;
+}
+
+/* log level list item styles */
+ul#loglist .info {
+    background-color: lightgreen;
+}
+
+ul#loglist .warn {
+    background-color: orange;
+}
+
+ul#loglist .fatal {
+    background-color: red;
+}
+
+ul#targetlist li {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    font-size: 1.2rem;
+    font-weight: 300;
+    margin-bottom: 0.5em;
+}

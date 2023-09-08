@@ -182,13 +182,6 @@ func StartSSMProxy(
 	remote_port string,
 ) (ocmdErr <-chan error, startErr error) {
 
-	// documentStr := fmt.Sprintf(
-	// 	`'{"host":"%s","portNumber":["%s"],"localPortNumber":["%s"]}'`,
-	// 	remote_host,
-	// 	remote_port,
-	// 	localport,
-	// )
-
 	documentStr := fmt.Sprintf(
 		"host=%s,portNumber=%s,localPortNumber=%s",
 		remote_host,

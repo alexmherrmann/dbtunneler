@@ -99,9 +99,8 @@ func HandleStartedErrChan(
 	targ TunnelTarget,
 	errChan <-chan error,
 	waiter *sync.WaitGroup) {
-	defer func() {
-		waiter.Done()
-	}()
+	defer waiter.Done()
+
 	err := <-errChan
 	if err != nil {
 		mon.ReportFatalError(targ.Name, "Proxy %s failed: %s", targ.Name, err)
